@@ -1,4 +1,5 @@
-pandas
-matplotlib
 streamlit
+pandas
 plotly
+matplotlib
+altair==4.2.2
