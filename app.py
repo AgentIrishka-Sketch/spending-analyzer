@@ -9,9 +9,15 @@ uploaded_file = st.file_uploader("Upload CSV", type="csv")
 if uploaded_file:
     df = pd.read_csv(uploaded_file)
 
-    # очистка названий колонок
-    df.columns = df.columns.str.lower().str.strip().str.replace(" ", "_")
+    df.columns = (
+        df.columns
+        .str.strip()
+        .str.lower()
+        .str.replace(" ", "_")
+        .str.replace(r"[^\w_]", "", regex=True)
+    )
 
+    st.write("Columns:", list(df.columns))
     st.write("Preview", df.head())
 
     categories = {
@@ -27,10 +33,12 @@ if uploaded_file:
                     return cat
         return "Other"
 
-    df["category"] = df["description"].apply(categorize)
+    if "description" in df.columns:
+        df["category"] = df["description"].apply(categorize)
 
-    # суммирование расходов (Revolut часто хранит траты как отрицательные числа)
-    summary = df.groupby("category")["amount"].sum().abs().reset_index()
+        summary = df.groupby("category")["amount"].sum().abs().reset_index()
 
-    fig = px.pie(summary, names="category", values="amount")
-    st.plotly_chart(fig)
+        fig = px.pie(summary, names="category", values="amount")
+        st.plotly_chart(fig)
+    else:
+        st.error(f"'description' column not found. Columns: {list(df.columns)}")
