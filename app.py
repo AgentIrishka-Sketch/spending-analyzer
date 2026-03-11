@@ -10,6 +10,7 @@ if uploaded_file:
     df = pd.read_csv(uploaded_file)
 
     st.write("Preview", df.head())
+    st.write(df.columns)
 
     categories = {
         "Groceries": ["tesco", "lidl", "albert", "billa", "sklizeno", "vilgain"],
