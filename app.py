@@ -12,7 +12,7 @@ if uploaded_file:
     st.write("Preview", df.head())
 
     categories = {
-        "Groceries": ["tesco", "lidl", "albert", "billa", "sklizeno", "vilgain","≈Ωabka", "czech food mahovsk√Ω", "karlova pek√°rna", "pek√°rna herold"],
+        "Groceries": ["tesco", "lidl", "albert", "billa", "sklizeno", "vilgain"],
         "Entertainment": ["netflix", "spotify"]
     }
 
@@ -24,8 +24,8 @@ if uploaded_file:
                     return cat
         return "Other"
 
-   df.columns = df.columns.str.lower()
-   df["category"] = df["description"].apply(categorize)
+    df.columns = df.columns.str.lower()
+    df["category"] = df["description"].apply(categorize)
 
     summary = df.groupby("category")["amount"].sum().reset_index()
 
