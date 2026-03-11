@@ -24,7 +24,7 @@ if categories_file and transactions_file:
     categories_df = pd.read_excel(categories_file, sheet_name=0)
     st.write("Categories preview:", categories_df.head())
 
-    # Create a dictionary for quick lookup
+    # Create dictionary: keyword → category
     keyword_map = dict(
         zip(
             categories_df.Keyword.str.lower().str.strip(),
@@ -43,7 +43,7 @@ if categories_file and transactions_file:
         .str.replace(" ", "_")
     )
 
-    # Convert date column to datetime
+    # Convert date column
     df["started_date"] = pd.to_datetime(
         df["started_date"].astype(str).str.strip(),
         format="%d.%m.%Y %H:%M:%S",
@@ -51,7 +51,7 @@ if categories_file and transactions_file:
     )
     df = df.dropna(subset=["started_date"])
 
-    # --- Categorize transactions ---
+    # Categorize transactions
     def categorize(desc):
         desc = str(desc).lower()
         for keyword, category in keyword_map.items():
@@ -61,22 +61,22 @@ if categories_file and transactions_file:
 
     df["category"] = df["description"].apply(categorize)
 
-    # Convert amount to numeric
-    df["amount"] = pd.to_numeric(df["amount"], errors="coerce")
+    # Convert amount to numeric and take absolute value
+    df["amount"] = pd.to_numeric(df["amount"], errors="coerce").abs()
 
-    # Keep only expenses (negative amounts)
-    expenses = df[df["amount"] < 0].copy()
+    # Copy all transactions as expenses (positive amounts)
+    expenses = df.copy()
     expenses["month"] = expenses["started_date"].dt.to_period("M").astype(str)
 
     # --- CATEGORY PIE ---
     st.subheader("Spending by Category")
-    summary = expenses.groupby("category")["amount"].sum().abs().reset_index()
+    summary = expenses.groupby("category")["amount"].sum().reset_index()
     fig1 = px.pie(summary, names="category", values="amount")
     st.plotly_chart(fig1, use_container_width=True)
 
     # --- MONTHLY SPENDING ---
     st.subheader("Monthly Spending")
-    monthly = expenses.groupby("month")["amount"].sum().abs().reset_index()
+    monthly = expenses.groupby("month")["amount"].sum().reset_index()
     fig2 = px.bar(monthly, x="month", y="amount")
     st.plotly_chart(fig2, use_container_width=True)
 
@@ -85,7 +85,6 @@ if categories_file and transactions_file:
     merchants = (
         expenses.groupby("description")["amount"]
         .sum()
-        .abs()
         .sort_values(ascending=False)
         .head(10)
         .reset_index()
