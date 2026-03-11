@@ -12,7 +12,7 @@ if uploaded_file:
     st.write("Preview", df.head())
 
     categories = {
-        "Groceries": ["tesco", "lidl", "albert"],
+        "Groceries": ["tesco", "lidl", "albert", "billa", "sklizeno", "vilgain","≈Ωabka", "czech food mahovsk√Ω", "karlova pek√°rna", "pek√°rna herold"],
         "Entertainment": ["netflix", "spotify"]
     }
 
