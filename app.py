@@ -4,90 +4,86 @@ import plotly.express as px
 
 st.title("💳 Spending Analyzer")
 
-# --- Загрузка Excel файла категорий ---
-categories_file = st.file_uploader(
-    "Upload Categories Excel (.xlsx)", type=["xlsx"], key="categories"
+# --- Загрузка категорий прямо с GitHub ---
+categories_url = "https://github.com/<USERNAME>/<REPO>/raw/main/categories.xlsx"
+categories_df = pd.read_excel(categories_url, sheet_name=0)
+
+# Преобразуем в словарь keyword → category
+keyword_map = dict(
+    zip(
+        categories_df.keyword.str.lower().str.strip(),
+        categories_df.category.str.strip()
+    )
 )
 
-if categories_file:
-    # Читаем Excel
-    categories_df = pd.read_excel(categories_file, sheet_name=0)
-    st.write("Categories preview:", categories_df.head())
+st.write("Categories loaded from GitHub:", categories_df.head())
 
-    # Создаём словарь keyword → category
-    keyword_map = dict(
-        zip(
-            categories_df.keyword.str.lower().str.strip(),
-            categories_df.category.str.strip()
-        )
+# --- Загрузка только Revolut CSV ---
+uploaded_file = st.file_uploader("Upload Revolut CSV", type="csv")
+
+if uploaded_file:
+
+    df = pd.read_csv(uploaded_file, sep=";")
+
+    # Очистка колонок
+    df.columns = (
+        df.columns
+        .str.strip()
+        .str.lower()
+        .str.replace(" ", "_")
     )
 
-    # --- Загрузка CSV транзакций Revolut ---
-    uploaded_file = st.file_uploader("Upload Revolut CSV", type="csv", key="transactions")
+    # Конвертация даты
+    df["started_date"] = pd.to_datetime(
+        df["started_date"].astype(str).str.strip(),
+        format="%d.%m.%Y %H:%M:%S",
+        errors="coerce"
+    )
+    df = df.dropna(subset=["started_date"])
 
-    if uploaded_file:
+    # Категоризация
+    def categorize(desc):
+        desc = str(desc).lower()
+        for keyword, category in keyword_map.items():
+            if keyword in desc:
+                return category
+        return "Other"
 
-        df = pd.read_csv(uploaded_file, sep=";")
+    df["category"] = df["description"].apply(categorize)
+    df["amount"] = pd.to_numeric(df["amount"], errors="coerce")
 
-        # Очистка колонок
-        df.columns = (
-            df.columns
-            .str.strip()
-            .str.lower()
-            .str.replace(" ", "_")
-        )
+    expenses = df[df["amount"] < 0].copy()
+    expenses["month"] = expenses["started_date"].dt.to_period("M").astype(str)
 
-        # Конвертация даты в datetime (формат DD.MM.YYYY HH:MM:SS)
-        df["started_date"] = pd.to_datetime(
-            df["started_date"].astype(str).str.strip(),
-            format="%d.%m.%Y %H:%M:%S",
-            errors="coerce"
-        )
-        df = df.dropna(subset=["started_date"])
+    # --- CATEGORY PIE ---
+    st.subheader("Spending by Category")
+    summary = expenses.groupby("category")["amount"].sum().abs().reset_index()
+    fig1 = px.pie(summary, names="category", values="amount")
+    st.plotly_chart(fig1, use_container_width=True)
 
-        # Функция категоризации
-        def categorize(desc):
-            desc = str(desc).lower()
-            for keyword, category in keyword_map.items():
-                if keyword in desc:
-                    return category
-            return "Other"
+    # --- MONTHLY SPENDING ---
+    st.subheader("Monthly Spending")
+    monthly = expenses.groupby("month")["amount"].sum().abs().reset_index()
+    fig2 = px.bar(monthly, x="month", y="amount")
+    st.plotly_chart(fig2, use_container_width=True)
 
-        df["category"] = df["description"].apply(categorize)
-        df["amount"] = pd.to_numeric(df["amount"], errors="coerce")
+    # --- TOP MERCHANTS ---
+    st.subheader("Top Merchants")
+    merchants = (
+        expenses.groupby("description")["amount"]
+        .sum()
+        .abs()
+        .sort_values(ascending=False)
+        .head(10)
+        .reset_index()
+    )
+    fig3 = px.bar(merchants, x="amount", y="description", orientation="h")
+    st.plotly_chart(fig3, use_container_width=True)
 
-        expenses = df[df["amount"] < 0].copy()
-        expenses["month"] = expenses["started_date"].dt.to_period("M").astype(str)
-
-        # --- Pie chart по категориям ---
-        st.subheader("Spending by Category")
-        summary = expenses.groupby("category")["amount"].sum().abs().reset_index()
-        fig1 = px.pie(summary, names="category", values="amount")
-        st.plotly_chart(fig1, use_container_width=True)
-
-        # --- Monthly spending ---
-        st.subheader("Monthly Spending")
-        monthly = expenses.groupby("month")["amount"].sum().abs().reset_index()
-        fig2 = px.bar(monthly, x="month", y="amount")
-        st.plotly_chart(fig2, use_container_width=True)
-
-        # --- Top merchants ---
-        st.subheader("Top Merchants")
-        merchants = (
-            expenses.groupby("description")["amount"]
-            .sum()
-            .abs()
-            .sort_values(ascending=False)
-            .head(10)
-            .reset_index()
-        )
-        fig3 = px.bar(merchants, x="amount", y="description", orientation="h")
-        st.plotly_chart(fig3, use_container_width=True)
-
-        # --- Таблица транзакций ---
-        st.subheader("Transactions")
-        st.dataframe(
-            expenses[
-                ["started_date", "description", "category", "amount"]
-            ].sort_values("started_date", ascending=False)
-        )
+    # --- TRANSACTIONS TABLE ---
+    st.subheader("Transactions")
+    st.dataframe(
+        expenses[
+            ["started_date", "description", "category", "amount"]
+        ].sort_values("started_date", ascending=False)
+    )
