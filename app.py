@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import re
 
-st.title("💳 Simple Spending by Category")
+st.title("💳 Simple Spending by Category with Transactions")
 
 # --- Upload Excel file with keywords ---
 categories_file = st.file_uploader("Upload Category Excel (.xlsx)", type=["xlsx"])
@@ -18,7 +18,7 @@ if categories_file and transactions_file:
     # Normalize keywords
     def normalize(text):
         text = str(text).lower().strip()
-        text = re.sub(r"[^a-z0-9]", "", text)  # remove non-alphanumeric chars
+        text = re.sub(r"[^a-z0-9]", "", text)
         return text
 
     categories_df["keyword_norm"] = categories_df["Keyword"].apply(normalize)
@@ -58,3 +58,10 @@ if categories_file and transactions_file:
 
     st.subheader("Total Spend per Category")
     st.dataframe(summary)
+
+    # --- Show transactions under each category ---
+    st.subheader("Transactions per Category")
+    for cat in summary["category"]:
+        st.markdown(f"### {cat} - Total: {summary[summary['category']==cat]['amount'].values[0]:.2f}")
+        cat_transactions = df[df["category"] == cat][["description", "amount"]]
+        st.dataframe(cat_transactions.reset_index(drop=True))
