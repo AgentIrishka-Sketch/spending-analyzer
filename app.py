@@ -17,7 +17,12 @@ if uploaded_file:
         .str.replace(" ", "_")
     )
 
-    df["started_date"] = pd.to_datetime(df["started_date"])
+    df["started_date"] = pd.to_datetime(
+    df["started_date"].astype(str).str.strip(),
+    format="%d.%m.%Y %H:%M:%S",
+    errors="coerce"
+)
+df = df.dropna(subset=["started_date"])
 
     categories_df = pd.read_csv("categories.csv")
 
