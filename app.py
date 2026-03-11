@@ -1,101 +1,60 @@
 import streamlit as st
 import pandas as pd
-import plotly.express as px
 import re
 
-st.title("💳 Spending Analyzer")
+st.title("💳 Simple Spending by Category")
 
 # --- Upload Excel file with keywords ---
-categories_file = st.file_uploader(
-    "Upload Keyword Excel (.xlsx) with columns 'Keyword' and 'Category'",
-    type=["xlsx"]
-)
+categories_file = st.file_uploader("Upload Category Excel (.xlsx)", type=["xlsx"])
 
 # --- Upload Revolut CSV file ---
-transactions_file = st.file_uploader(
-    "Upload Revolut CSV",
-    type=["csv"]
-)
+transactions_file = st.file_uploader("Upload Revolut CSV", type=["csv"])
 
 if categories_file and transactions_file:
 
-    # --- Load keywords Excel ---
+    # --- Load categories ---
     categories_df = pd.read_excel(categories_file)
     
     # Normalize keywords
-    def normalize_text(text):
+    def normalize(text):
         text = str(text).lower().strip()
-        text = re.sub(r"[^a-z0-9]", "", text)  # remove non-alphanumeric
+        text = re.sub(r"[^a-z0-9]", "", text)  # remove non-alphanumeric chars
         return text
 
-    categories_df["keyword_norm"] = categories_df["Keyword"].apply(normalize_text)
-    
-    # --- Load Revolut CSV ---
+    categories_df["keyword_norm"] = categories_df["Keyword"].apply(normalize)
+
+    # --- Load CSV ---
     df = pd.read_csv(transactions_file, sep=";")
     
-    # Normalize columns
+    # Normalize column names
     df.columns = df.columns.str.strip().str.lower().str.replace(" ", "_")
-    
-    # Ensure correct columns exist
-    required_cols = ["description", "amount", "started_date"]
-    for col in required_cols:
-        if col not in df.columns:
-            st.error(f"Column '{col}' not found in CSV. Found columns: {df.columns.tolist()}")
-            st.stop()
 
-    # Normalize transaction descriptions
-    df["description_norm"] = df["description"].apply(normalize_text)
-    
-    # Convert amounts to numeric
-    df["amount"] = (
-        df["amount"].astype(str)
-        .str.replace(",", ".")
-        .str.replace(" ", "")
-    )
+    # Check required columns
+    if "description" not in df.columns or "amount" not in df.columns:
+        st.error("CSV must contain 'Description' and 'Amount' columns")
+        st.stop()
+
+    # Normalize description
+    df["description_norm"] = df["description"].apply(normalize)
+
+    # Convert amount to numeric
+    df["amount"] = df["amount"].astype(str).str.replace(",", ".").str.replace(" ", "")
     df["amount"] = pd.to_numeric(df["amount"], errors="coerce").abs()
 
-    # Convert date column
-    df["started_date"] = pd.to_datetime(
-        df["started_date"].astype(str).str.strip(),
-        format="%d.%m.%Y %H:%M:%S",
-        errors="coerce"
-    )
-    df = df.dropna(subset=["started_date"])
-    df["month"] = df["started_date"].dt.to_period("M").astype(str)
-
-    # --- Categorize transactions ---
+    # --- Categorize ---
     keyword_map = dict(zip(categories_df["keyword_norm"], categories_df["Category"]))
 
     def categorize(desc_norm):
         for keyword_norm, category in keyword_map.items():
-            if keyword_norm in desc_norm:  # partial match
+            if keyword_norm in desc_norm:
                 return category
-        return "Other"
+        return "Unknown"
 
     df["category"] = df["description_norm"].apply(categorize)
 
-    # --- Debug: show categories mapping ---
-    st.write("Categories after mapping:")
-    st.dataframe(df["category"].value_counts())
-
-    # --- CATEGORY PIE ---
-    st.subheader("Spending by Category")
+    # --- Sum per category ---
     summary = df.groupby("category")["amount"].sum().reset_index()
-    fig1 = px.pie(summary, names="category", values="amount")
-    st.plotly_chart(fig1, use_container_width=True)
+    summary = summary.sort_values(by="amount", ascending=False)
 
-    # --- MONTHLY SPENDING ---
-    st.subheader("Monthly Spending")
-    monthly = df.groupby("month")["amount"].sum().reset_index()
-    fig2 = px.bar(monthly, x="month", y="amount")
-    st.plotly_chart(fig2, use_container_width=True)
-
-    # --- TOP MERCHANTS ---
-    st.subheader("Top Merchants")
-    merchants = df.groupby("description")["amount"].sum().sort_values(ascending=False).head(10).reset_index()
-    fig3 = px.bar(merchants, x="amount", y="description", orientation="h")
-    st.plotly_chart(fig3, use_container_width=True)
-
-    # --- TRANSACTIONS TABLE ---
-    st.subheader("Transactions")
-    st.dataframe(df[["started_date", "description", "category", "amount"]].sort_values("started_date", ascending=False))
+    st.subheader("Total Spend per Category")
+    st.dataframe(summary)
