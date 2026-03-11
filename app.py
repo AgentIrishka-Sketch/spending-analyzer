@@ -4,7 +4,7 @@ import plotly.express as px
 
 st.title("💳 Spending Analyzer")
 
-# --- Загрузка файла категорий Excel ---
+# --- Загрузка Excel файла категорий ---
 categories_file = st.file_uploader(
     "Upload Categories Excel (.xlsx)", type=["xlsx"], key="categories"
 )
@@ -13,7 +13,7 @@ if categories_file:
     categories_df = pd.read_excel(categories_file, sheet_name=0)
     st.write("Categories preview:", categories_df.head())
 
-    # создаём словарь keyword → category
+    # словарь keyword → category
     keyword_map = dict(
         zip(
             categories_df.keyword.str.lower().str.strip(),
@@ -21,13 +21,12 @@ if categories_file:
         )
     )
 
-    # --- Загрузка транзакций CSV ---
+    # --- Загрузка CSV транзакций Revolut ---
     transactions_file = st.file_uploader(
         "Upload Transactions CSV", type=["csv"], key="transactions"
     )
 
     if transactions_file:
-
         df = pd.read_csv(transactions_file, sep=";")
 
         # очистка колонок
@@ -38,13 +37,12 @@ if categories_file:
             .str.replace(" ", "_")
         )
 
-        # конвертация даты в datetime
+        # конвертация даты в datetime (формат DD.MM.YYYY HH:MM:SS)
         df["started_date"] = pd.to_datetime(
             df["started_date"].astype(str).str.strip(),
             format="%d.%m.%Y %H:%M:%S",
             errors="coerce"
         )
-
         df = df.dropna(subset=["started_date"])
 
         # функция категоризации
