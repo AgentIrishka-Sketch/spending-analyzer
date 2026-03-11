@@ -4,11 +4,10 @@ import plotly.express as px
 
 st.title("💳 Spending Analyzer")
 
-# --- Загрузка категорий прямо с GitHub ---
-categories_url = "https://github.com/<USERNAME>/<REPO>/raw/main/categories.xlsx"
-categories_df = pd.read_excel(categories_url, sheet_name=0)
+# --- Загружаем категории из Excel, который уже есть в проекте ---
+categories_df = pd.read_excel("categories.xlsx", sheet_name=0)
 
-# Преобразуем в словарь keyword → category
+# Создаём словарь keyword → category
 keyword_map = dict(
     zip(
         categories_df.keyword.str.lower().str.strip(),
@@ -16,9 +15,7 @@ keyword_map = dict(
     )
 )
 
-st.write("Categories loaded from GitHub:", categories_df.head())
-
-# --- Загрузка только Revolut CSV ---
+# --- Загрузка только Revolut CSV от пользователя ---
 uploaded_file = st.file_uploader("Upload Revolut CSV", type="csv")
 
 if uploaded_file:
