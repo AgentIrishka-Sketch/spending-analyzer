@@ -4,25 +4,38 @@ import plotly.express as px
 
 st.title("💳 Spending Analyzer")
 
-# --- Загружаем категории из Excel, который уже есть в проекте ---
-categories_df = pd.read_excel("categories.xlsx", sheet_name=0)
-
-# Создаём словарь keyword → category
-keyword_map = dict(
-    zip(
-        categories_df.keyword.str.lower().str.strip(),
-        categories_df.category.str.strip()
-    )
+# --- Upload Excel file with keywords ---
+categories_file = st.file_uploader(
+    "Upload Keyword Excel (.xlsx) with columns 'Keyword' and 'Category'",
+    type=["xlsx"],
+    key="categories"
 )
 
-# --- Загрузка только Revolut CSV от пользователя ---
-uploaded_file = st.file_uploader("Upload Revolut CSV", type="csv")
+# --- Upload Revolut CSV file ---
+transactions_file = st.file_uploader(
+    "Upload Revolut CSV",
+    type=["csv"],
+    key="transactions"
+)
 
-if uploaded_file:
+if categories_file and transactions_file:
 
-    df = pd.read_csv(uploaded_file, sep=";")
+    # --- Load keywords Excel ---
+    categories_df = pd.read_excel(categories_file, sheet_name=0)
+    st.write("Categories preview:", categories_df.head())
 
-    # Очистка колонок
+    # Create a dictionary for quick lookup
+    keyword_map = dict(
+        zip(
+            categories_df.Keyword.str.lower().str.strip(),
+            categories_df.Category.str.strip()
+        )
+    )
+
+    # --- Load Revolut CSV ---
+    df = pd.read_csv(transactions_file, sep=";")
+
+    # Clean column names
     df.columns = (
         df.columns
         .str.strip()
@@ -30,7 +43,7 @@ if uploaded_file:
         .str.replace(" ", "_")
     )
 
-    # Конвертация даты
+    # Convert date column to datetime
     df["started_date"] = pd.to_datetime(
         df["started_date"].astype(str).str.strip(),
         format="%d.%m.%Y %H:%M:%S",
@@ -38,7 +51,7 @@ if uploaded_file:
     )
     df = df.dropna(subset=["started_date"])
 
-    # Категоризация
+    # --- Categorize transactions ---
     def categorize(desc):
         desc = str(desc).lower()
         for keyword, category in keyword_map.items():
@@ -47,8 +60,11 @@ if uploaded_file:
         return "Other"
 
     df["category"] = df["description"].apply(categorize)
+
+    # Convert amount to numeric
     df["amount"] = pd.to_numeric(df["amount"], errors="coerce")
 
+    # Keep only expenses (negative amounts)
     expenses = df[df["amount"] < 0].copy()
     expenses["month"] = expenses["started_date"].dt.to_period("M").astype(str)
 
