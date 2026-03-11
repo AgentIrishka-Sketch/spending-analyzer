@@ -26,7 +26,7 @@ if uploaded_file:
         return "Other"
 
     df.columns = df.columns.str.lower()
-    df["category"] = df["description"].apply(categorize)
+    df["category"] = df["Description"].apply(categorize)
 
     summary = df.groupby("category")["amount"].sum().reset_index()
 
